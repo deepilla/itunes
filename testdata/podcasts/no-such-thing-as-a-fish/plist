@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<plist version="1.0">
+<dict>
+<key>pings</key>
+<array></array>
+<key>jingleDocType</key><string></string>
+<key>jingleAction</key><string></string>
+<key>action</key>
+<dict>
+<key>kind</key><string>Goto</string>
+<key>url</key><string>podcasts/no-such-thing-as-a-fish/itunes-page?cc=gb&amp;urlDesc=%2Fno-such-thing-as-a-fish&amp;mt=2&amp;id=840986946</string>
+</dict>
+</dict>
+</plist>

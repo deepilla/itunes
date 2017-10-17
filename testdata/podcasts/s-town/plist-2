@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<plist version="1.0">
+<dict>
+<key>pings</key>
+<array></array>
+<key>jingleDocType</key><string></string>
+<key>jingleAction</key><string></string>
+<key>action</key>
+<dict>
+<key>kind</key><string>Goto</string>
+<key>url</key><string>podcasts/s-town/plist-1</string>
+</dict>
+</dict>
+</plist>
