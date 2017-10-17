@@ -4,9 +4,7 @@
 [![Build Status](https://travis-ci.org/deepilla/itunes.svg?branch=master)](https://travis-ci.org/deepilla/itunes)
 [![Go Report Card](https://goreportcard.com/badge/github.com/deepilla/itunes)](https://goreportcard.com/report/github.com/deepilla/itunes)
 
-itunes is a tiny library for extracting RSS feeds from iTunes pages, written in Go.
-
-Have you ever needed to get the underlying RSS feed from a podcast's iTunes page? Have you ever needed to do it in Go? Well this is the package for you.
+Have you ever wanted to get the underlying RSS feed from a podcast's iTunes page? Have you ever needed to do it in Go? Well this is the package for you.
 
 ## Installation
 
@@ -28,6 +26,8 @@ if err != nil {
 
 fmt.Println("RSS feed is", url) // outputs "RSS feed is http://feeds.stownpodcast.org/stownpodcast"
 ```
+
+Note: This package will not work on iTunesU pages as they don't have publicly available feeds.
 
 ## Licensing
 
