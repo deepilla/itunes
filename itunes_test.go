@@ -312,7 +312,7 @@ func redirectRequests(ts *httptest.Server, client itunes.Client) itunes.Client {
 func validateRequests(t *testing.T, client itunes.Client) itunes.Client {
 	return clientFunc(func(req *http.Request) (*http.Response, error) {
 
-		if got, exp := req.Method, http.MethodGet; got != exp {
+		if got, exp := req.Method, "GET"; got != exp {
 			t.Fatalf("Bad request: expected Method %q, got %q", exp, got)
 		}
 

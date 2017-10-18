@@ -176,7 +176,7 @@ func processXML(r io.Reader) (string, error) {
 
 func newRequest(u string) (*http.Request, error) {
 
-	req, err := http.NewRequest(http.MethodGet, u, nil)
+	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		if e, ok := err.(*url.Error); ok {
 			err = e.Err
