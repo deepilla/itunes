@@ -147,11 +147,8 @@ func TestBadRequest(t *testing.T) {
 		Err error
 	}{
 		{
+			URL: "",
 			Err: errors.New(`fetch error: Get : unsupported protocol scheme ""`),
-		},
-		{
-			URL: "https://",
-			Err: errors.New(`fetch error: Get https://: http: no Host in request URL`),
 		},
 		{
 			URL: "pcast://itunes.apple.com/podcasts/123456789",
@@ -160,10 +157,6 @@ func TestBadRequest(t *testing.T) {
 		{
 			URL: "://itunes.apple.com/podcasts/123456789",
 			Err: errors.New("bad request: missing protocol scheme"),
-		},
-		{
-			URL: "1ttp://itunes.apple.com/podcasts/123456789",
-			Err: errors.New("bad request: first path segment in URL cannot contain colon"),
 		},
 		{
 			URL: "http://itunes.apple.com/podcasts/123456789#bad%%20escaping",
