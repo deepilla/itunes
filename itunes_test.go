@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -93,17 +94,11 @@ func TestToRSS(t *testing.T) {
 			},
 			Feed: "https://podcasts.files.bbci.co.uk/b00lvdrj.rss",
 		},
-
-		"No Feed (HTML)": {
+		"No Feed": {
 			Paths: []string{
 				"errors/no-feed/itunes-missing-user-agent",
 				"errors/no-feed/itunes-no-episodes",
 				"errors/no-feed/itunes-itunesu",
-			},
-			Err: itunes.ErrNoFeed,
-		},
-		"No Feed (XML)": {
-			Paths: []string{
 				"errors/no-feed/plist-item-not-available",
 				"errors/no-feed/plist-incomplete",
 				"errors/no-feed/plist-blank-url",
@@ -142,77 +137,62 @@ func TestToRSS(t *testing.T) {
 
 func TestBadRequest(t *testing.T) {
 
-	data := []struct {
-		URL string
-		Err error
-	}{
-		{
-			URL: "",
-			Err: errors.New(`fetch error: Get : unsupported protocol scheme ""`),
-		},
-		{
-			URL: "pcast://itunes.apple.com/podcasts/123456789",
-			Err: errors.New(`fetch error: Get pcast://itunes.apple.com/podcasts/123456789: unsupported protocol scheme "pcast"`),
-		},
-		{
-			URL: "://itunes.apple.com/podcasts/123456789",
-			Err: errors.New("bad request: missing protocol scheme"),
-		},
-		{
-			URL: "http://itunes.apple.com/podcasts/123456789#bad%%20escaping",
-			Err: errors.New(`bad request: invalid URL escape "%%2"`),
-		},
+	urls := []string{
+		"",
+		"https://",
+		"://itunes.apple.com/podcasts/123456789",
+		"1ttps://itunes.apple.com/podcasts/123456789",
+		"http://itunes.apple.com/podcasts/123456789#bad%%20escaping",
 	}
 
-	for _, test := range data {
+	skipped := 0
 
-		_, err := itunes.ToRSS(test.URL)
+	for _, u := range urls {
 
-		if !equalErrors(err, test.Err) {
-			t.Errorf("URL %s: expected error %s, got %s", test.URL, formatError(test.Err), formatError(err))
+		_, err := url.Parse(u)
+		if err == nil {
+			skipped++
+			t.Logf("Warning: Parse(%q) didn't return an error", u)
+			continue
 		}
+
+		if e, ok := err.(*url.Error); ok {
+			err = e.Err
+		}
+
+		exp := fmt.Errorf("bad request: %s", err)
+		_, got := itunes.ToRSS(u)
+
+		if !equalErrors(got, exp) {
+			t.Errorf("URL %q: expected error %s, got %s", u, formatError(exp), formatError(got))
+		}
+	}
+
+	if skipped == len(urls) {
+		t.Errorf("No requests tested")
 	}
 }
 
-func TestBadContentType(t *testing.T) {
+func TestFetchError(t *testing.T) {
 
-	data := []struct {
-		ContentType string
-		Err         error
-	}{
-		{
-			ContentType: "",
-			Err:         errors.New(`bad Content Type "": mime: no media type`),
-		},
-		{
-			ContentType: "text/",
-			Err:         errors.New(`bad Content Type "text/": mime: expected token after slash`),
-		},
-		{
-			ContentType: "text/xml; =",
-			Err:         errors.New(`bad Content Type "text/xml; =": mime: invalid media parameter`),
-		},
-		{
-			ContentType: "image/png",
-			Err:         errors.New(`unexpected Content Type "image/png"`),
-		},
-		{
-			ContentType: "text/plain; charset=utf-8",
-			Err:         errors.New(`unexpected Content Type "text/plain; charset=utf-8"`),
-		},
+	msgs := []string{
+		"it was nearly eleven when I started to return",
+		"the night was unexpectedly dark",
+		"to me, walking out of the lighted passage of my cousin's house",
+		"it seemed indeed black",
 	}
 
-	for _, test := range data {
+	for _, s := range msgs {
 
-		ts := httptest.NewServer(contentTypeHandler(test.ContentType))
-		defer ts.Close()
+		client := clientFunc(func(*http.Request) (*http.Response, error) {
+			return nil, errors.New(s)
+		})
 
-		client := redirectRequests(ts, http.DefaultClient)
+		exp := fmt.Errorf("fetch error: %s", s)
+		_, got := itunes.ToRSSClient(client, "")
 
-		_, err := itunes.ToRSSClient(client, "")
-
-		if !equalErrors(err, test.Err) {
-			t.Errorf("Content Type %q: expected error %s, got %s", test.ContentType, formatError(test.Err), formatError(err))
+		if !equalErrors(got, exp) {
+			t.Errorf("expected error %s, got %s", formatError(exp), formatError(got))
 		}
 	}
 }
@@ -235,44 +215,82 @@ func TestBadHTTPStatus(t *testing.T) {
 	for _, code := range statusCodes {
 
 		ts := httptest.NewServer(errorHandler(code))
-		defer ts.Close()
-
-		exp := fmt.Errorf("bad HTTP Status: %d status code %d", code, code)
-		if msg := http.StatusText(code); msg != "" {
-			exp = fmt.Errorf("bad HTTP Status: %d %s", code, msg)
-		}
-
 		client := redirectRequests(ts, http.DefaultClient)
 
-		_, err := itunes.ToRSSClient(client, "")
-
-		if !equalErrors(err, exp) {
-			t.Errorf("Status %d: expected error %s, got %s", code, formatError(exp), formatError(err))
+		msg := http.StatusText(code)
+		if msg == "" {
+			msg = fmt.Sprintf("status code %d", code) // Go's default status for unrecognised error codes
 		}
+
+		exp := fmt.Errorf("bad HTTP Status: %d %s", code, msg)
+		_, got := itunes.ToRSSClient(client, "")
+
+		if !equalErrors(got, exp) {
+			t.Errorf("Status %d: expected error %s, got %s", code, formatError(exp), formatError(got))
+		}
+
+		ts.Close()
 	}
 }
 
-func TestFetchError(t *testing.T) {
+func TestBadContentType(t *testing.T) {
 
-	msgs := []string{
-		"it was nearly eleven when I started to return",
-		"the night was unexpectedly dark",
-		"to me, walking out of the lighted passage of my cousin's house",
-		"it seemed indeed black",
+	types := []string{
+		"",
+		"text/",
+		"text/xml; =",
 	}
 
-	for _, s := range msgs {
+	skipped := 0
 
-		exp := errors.New("fetch error: " + s)
-		client := clientFunc(func(*http.Request) (*http.Response, error) {
-			return nil, errors.New(s)
-		})
+	for _, ctype := range types {
 
-		_, err := itunes.ToRSSClient(client, "")
-
-		if !equalErrors(err, exp) {
-			t.Errorf("expected error %s, got %s", formatError(exp), formatError(err))
+		_, _, err := mime.ParseMediaType(ctype)
+		if err == nil {
+			skipped++
+			t.Logf("Warning: ParseMediaType(%q) didn't return an error", ctype)
+			continue
 		}
+
+		ts := httptest.NewServer(contentTypeHandler(ctype))
+		client := redirectRequests(ts, http.DefaultClient)
+
+		exp := fmt.Errorf("bad Content Type %q: %s", ctype, err)
+		_, got := itunes.ToRSSClient(client, "")
+
+		if !equalErrors(got, exp) {
+			t.Errorf("Content Type %q: expected error %s, got %s", ctype, formatError(exp), formatError(got))
+		}
+
+		ts.Close()
+	}
+
+	if skipped == len(types) {
+		t.Errorf("No content types tested")
+	}
+}
+
+func TestUnexpectedContentType(t *testing.T) {
+
+	types := []string{
+		"image/png",
+		"text/plain; charset=utf-8",
+		"audio/mpeg",
+	}
+
+	for _, ctype := range types {
+
+		ts := httptest.NewServer(contentTypeHandler(ctype))
+		client := redirectRequests(ts, http.DefaultClient)
+
+		exp := fmt.Errorf("unexpected Content Type %q", ctype)
+		_, got := itunes.ToRSSClient(client, "")
+
+		if !equalErrors(got, exp) {
+			t.Errorf("Content Type %q: expected error %s, got %s", ctype, formatError(exp), formatError(got))
+		}
+
+		ts.Close()
 	}
 }
 
