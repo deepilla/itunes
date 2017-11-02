@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -55,26 +56,16 @@ func ToRSSClient(c Client, url string) (string, error) {
 
 func processURL(c Client, url string, redirects int) (string, error) {
 
-	req, err := newRequest(url)
+	resp, err := fetch(c, url)
 	if err != nil {
-		return "", errors.New("bad request: " + err.Error())
-	}
-
-	resp, err := c.Do(req)
-	if err != nil {
-		return "", errors.New("fetch error: " + err.Error())
+		return "", fmt.Errorf("fetch error: %s", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("bad HTTP Status: " + resp.Status)
-	}
-
 	ctype := resp.Header.Get("Content-Type")
-
 	media, _, err := mime.ParseMediaType(ctype)
 	if err != nil {
-		return "", errors.New("bad Content Type \"" + ctype + "\": " + err.Error())
+		return "", fmt.Errorf("bad Content Type %q: %s", ctype, err)
 	}
 
 	switch media {
@@ -94,7 +85,7 @@ func processURL(c Client, url string, redirects int) (string, error) {
 		return processURL(c, next, redirects)
 
 	default:
-		return "", errors.New("unexpected Content Type \"" + ctype + "\"")
+		return "", fmt.Errorf("unexpected Content Type %q", ctype)
 	}
 }
 
@@ -188,4 +179,24 @@ func newRequest(u string) (*http.Request, error) {
 	req.Header.Set("User-Agent", iTunesUA)
 
 	return req, nil
+}
+
+func fetch(c Client, url string) (*http.Response, error) {
+
+	req, err := newRequest(url)
+	if err != nil {
+		return nil, fmt.Errorf("bad URL: %s", err)
+	}
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("HTTP Status %s", resp.Status)
+	}
+
+	return resp, nil
 }

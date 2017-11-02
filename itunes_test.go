@@ -135,7 +135,7 @@ func TestToRSS(t *testing.T) {
 	}
 }
 
-func TestBadRequest(t *testing.T) {
+func TestBadURL(t *testing.T) {
 
 	urls := []string{
 		"",
@@ -160,7 +160,7 @@ func TestBadRequest(t *testing.T) {
 			err = e.Err
 		}
 
-		exp := fmt.Errorf("bad request: %s", err)
+		exp := fmt.Errorf("fetch error: bad URL: %s", err)
 		_, got := itunes.ToRSS(u)
 
 		if !equalErrors(got, exp) {
@@ -173,7 +173,7 @@ func TestBadRequest(t *testing.T) {
 	}
 }
 
-func TestFetchError(t *testing.T) {
+func TestClientError(t *testing.T) {
 
 	msgs := []string{
 		"it was nearly eleven when I started to return",
@@ -222,7 +222,7 @@ func TestBadHTTPStatus(t *testing.T) {
 			msg = fmt.Sprintf("status code %d", code) // Go's default status for unrecognised error codes
 		}
 
-		exp := fmt.Errorf("bad HTTP Status: %d %s", code, msg)
+		exp := fmt.Errorf("fetch error: HTTP Status %d %s", code, msg)
 		_, got := itunes.ToRSSClient(client, "")
 
 		if !equalErrors(got, exp) {
