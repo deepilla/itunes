@@ -146,13 +146,15 @@ func TestBadURL(t *testing.T) {
 	}
 
 	skipped := 0
-
 	for _, u := range urls {
 
 		_, err := url.Parse(u)
 		if err == nil {
-			skipped++
 			t.Logf("Warning: Parse(%q) didn't return an error", u)
+			skipped++
+			if skipped == len(urls) {
+				t.Fatalf("No URLs tested")
+			}
 			continue
 		}
 
@@ -166,10 +168,6 @@ func TestBadURL(t *testing.T) {
 		if !equalErrors(got, exp) {
 			t.Errorf("URL %q: expected error %s, got %s", u, formatError(exp), formatError(got))
 		}
-	}
-
-	if skipped == len(urls) {
-		t.Errorf("No requests tested")
 	}
 }
 
@@ -242,13 +240,15 @@ func TestBadContentType(t *testing.T) {
 	}
 
 	skipped := 0
-
 	for _, ctype := range types {
 
 		_, _, err := mime.ParseMediaType(ctype)
 		if err == nil {
-			skipped++
 			t.Logf("Warning: ParseMediaType(%q) didn't return an error", ctype)
+			skipped++
+			if skipped == len(types) {
+				t.Fatalf("No Content Types tested")
+			}
 			continue
 		}
 
@@ -263,10 +263,6 @@ func TestBadContentType(t *testing.T) {
 		}
 
 		ts.Close()
-	}
-
-	if skipped == len(types) {
-		t.Errorf("No content types tested")
 	}
 }
 
@@ -331,19 +327,19 @@ func validateRequests(t *testing.T, client itunes.Client) itunes.Client {
 	return clientFunc(func(req *http.Request) (*http.Response, error) {
 
 		if got, exp := req.Method, "GET"; got != exp {
-			t.Fatalf("Bad request: expected Method %q, got %q", exp, got)
+			t.Fatalf("Bad Request: expected Method %q, got %q", exp, got)
 		}
 
 		if got, exp := req.Header.Get("User-Agent"), "iTunes/10.1"; got != exp {
-			t.Fatalf("Bad request: expected User Agent %q, got %q", exp, got)
+			t.Fatalf("Bad Request: expected User Agent %q, got %q", exp, got)
 		}
 
 		if req.Body != nil {
 			b, err := ioutil.ReadAll(req.Body)
 			if err != nil {
-				t.Fatalf("Bad request: Expected nil body, got something unreadable (read error: %s)", err)
+				t.Fatalf("Bad Request: Expected nil body, got something unreadable (read error: %s)", err)
 			}
-			t.Fatalf("Bad request: Expected nil body, got %q", string(b))
+			t.Fatalf("Bad Request: Expected nil body, got %q", string(b))
 		}
 
 		return client.Do(req)
@@ -354,7 +350,7 @@ func formatError(err error) string {
 	if err == nil {
 		return "Nil"
 	}
-	return "\"" + err.Error() + "\""
+	return fmt.Sprintf("%q", err)
 }
 
 func equalErrors(err1, err2 error) bool {
