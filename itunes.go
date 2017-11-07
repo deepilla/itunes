@@ -18,16 +18,15 @@ import (
 const iTunesUA = "iTunes/10.1"
 const maxRedirects = 3
 
-// ErrNoFeed is returned by the ToRSS functions when they
-// fail to find an RSS feed in the given iTunes page. This
-// usually means that the function has been called on an
-// unsupported page type, such as a non-podcast iTunes page
-// or an iTunesU page.
+// ErrNoFeed is returned by the ToRSS functions when they fail
+// to find an RSS feed in the given iTunes page. This usually
+// indicates an unsupported page type, such as a non-podcast
+// iTunes page or an iTunesU page.
 var ErrNoFeed = errors.New("no feed found")
 
-// A Client is responsible for executing HTTP requests.
-// Its interface is satisfied by http.Client. Provide your
-// own implementation to intercept requests and responses.
+// A Client is responsible for executing HTTP requests. Its
+// interface is satisfied by http.Client. Provide your own
+// implementation to intercept requests and responses.
 type Client interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -35,18 +34,18 @@ type Client interface {
 // ToRSS returns the underlying RSS feed from an iTunes URL
 // using the default HTTP client.
 func ToRSS(url string) (string, error) {
-	return ToRSSClient(nil, url)
+	return ToRSSClient(url, nil)
 }
 
-// ToRSSClient returns the underlying RSS feed from an
-// iTunes URL using the provided Client.
-func ToRSSClient(c Client, url string) (string, error) {
+// ToRSSClient returns the underlying RSS feed from an iTunes
+// URL using the provided Client.
+func ToRSSClient(url string, client Client) (string, error) {
 
-	if c == nil {
-		c = http.DefaultClient
+	if client == nil {
+		client = http.DefaultClient
 	}
 
-	feed, err := processURL(c, url, 0)
+	feed, err := processURL(url, client, 0)
 	if err == io.EOF {
 		err = ErrNoFeed
 	}
@@ -54,9 +53,9 @@ func ToRSSClient(c Client, url string) (string, error) {
 	return feed, err
 }
 
-func processURL(c Client, url string, redirects int) (string, error) {
+func processURL(url string, client Client, redirects int) (string, error) {
 
-	resp, err := fetch(c, url)
+	resp, err := fetch(client, url)
 	if err != nil {
 		return "", fmt.Errorf("fetch error: %s", err)
 	}
@@ -82,10 +81,10 @@ func processURL(c Client, url string, redirects int) (string, error) {
 			return "", errors.New("too many redirects")
 		}
 
-		return processURL(c, next, redirects)
+		return processURL(next, client, redirects)
 
 	default:
-		return "", fmt.Errorf("unexpected Content Type %q", ctype)
+		return "", fmt.Errorf("unsupported Content Type %q", ctype)
 	}
 }
 
@@ -125,12 +124,16 @@ func processHTML(r io.Reader) (string, error) {
 	return "", z.Err()
 }
 
-// Matches <key>url</key><string>path/to/itunes-page</string>
-var reGoto = regexp.MustCompile(`^<key>url</key><string>(\S+)</string>$`)
+var (
+	// This line comes directly before the URL line in a Goto file.
+	prevLine = []byte("<key>kind</key><string>Goto</string>")
+
+	// This regex extracts the URL from a Goto file.
+	// Matches: <key>url</key><string>path/to/itunes-page</string>
+	reGoto = regexp.MustCompile(`^<key>url</key><string>(\S+)</string>$`)
+)
 
 func processXML(r io.Reader) (string, error) {
-
-	prevLine := []byte("<key>kind</key><string>Goto</string>")
 
 	scanner := bufio.NewScanner(r)
 
@@ -181,21 +184,21 @@ func newRequest(u string) (*http.Request, error) {
 	return req, nil
 }
 
-func fetch(c Client, url string) (*http.Response, error) {
+func fetch(client Client, url string) (*http.Response, error) {
 
 	req, err := newRequest(url)
 	if err != nil {
 		return nil, fmt.Errorf("bad URL: %s", err)
 	}
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP Status %s", resp.Status)
+		return nil, errors.New(resp.Status)
 	}
 
 	return resp, nil

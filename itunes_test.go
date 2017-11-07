@@ -122,7 +122,7 @@ func TestToRSS(t *testing.T) {
 	for name, test := range data {
 		for i, url := range test.Paths {
 
-			feed, err := itunes.ToRSSClient(client, url)
+			feed, err := itunes.ToRSSClient(url, client)
 
 			if !equalErrors(err, test.Err) {
 				t.Errorf("%s [%d/%d]: expected error %s, got %s", name, i+1, len(test.Paths), formatError(test.Err), formatError(err))
@@ -187,7 +187,7 @@ func TestClientError(t *testing.T) {
 		})
 
 		exp := fmt.Errorf("fetch error: %s", s)
-		_, got := itunes.ToRSSClient(client, "")
+		_, got := itunes.ToRSSClient("", client)
 
 		if !equalErrors(got, exp) {
 			t.Errorf("expected error %s, got %s", formatError(exp), formatError(got))
@@ -220,8 +220,8 @@ func TestBadHTTPStatus(t *testing.T) {
 			msg = fmt.Sprintf("status code %d", code) // Go's default status for unrecognised error codes
 		}
 
-		exp := fmt.Errorf("fetch error: HTTP Status %d %s", code, msg)
-		_, got := itunes.ToRSSClient(client, "")
+		exp := fmt.Errorf("fetch error: %d %s", code, msg)
+		_, got := itunes.ToRSSClient("", client)
 
 		if !equalErrors(got, exp) {
 			t.Errorf("Status %d: expected error %s, got %s", code, formatError(exp), formatError(got))
@@ -256,7 +256,7 @@ func TestBadContentType(t *testing.T) {
 		client := redirectRequests(ts, http.DefaultClient)
 
 		exp := fmt.Errorf("bad Content Type %q: %s", ctype, err)
-		_, got := itunes.ToRSSClient(client, "")
+		_, got := itunes.ToRSSClient("", client)
 
 		if !equalErrors(got, exp) {
 			t.Errorf("Content Type %q: expected error %s, got %s", ctype, formatError(exp), formatError(got))
@@ -266,7 +266,7 @@ func TestBadContentType(t *testing.T) {
 	}
 }
 
-func TestUnexpectedContentType(t *testing.T) {
+func TestUnsupportedContentType(t *testing.T) {
 
 	types := []string{
 		"image/png",
@@ -279,8 +279,8 @@ func TestUnexpectedContentType(t *testing.T) {
 		ts := httptest.NewServer(contentTypeHandler(ctype))
 		client := redirectRequests(ts, http.DefaultClient)
 
-		exp := fmt.Errorf("unexpected Content Type %q", ctype)
-		_, got := itunes.ToRSSClient(client, "")
+		exp := fmt.Errorf("unsupported Content Type %q", ctype)
+		_, got := itunes.ToRSSClient("", client)
 
 		if !equalErrors(got, exp) {
 			t.Errorf("Content Type %q: expected error %s, got %s", ctype, formatError(exp), formatError(got))
